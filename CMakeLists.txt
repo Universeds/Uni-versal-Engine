@@ -14,10 +14,11 @@ find_package(GLEW REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
 file(GLOB_RECURSE SOURCES "src/*.cpp")
+file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
 
-add_executable(UniversalEngine ${SOURCES})
+add_executable(UniversalEngine ${SOURCES} ${TEST_SOURCES})
 
-target_include_directories(UniversalEngine PRIVATE src)
+target_include_directories(UniversalEngine PRIVATE src tests)
 
 target_link_libraries(UniversalEngine 
     OpenGL::GL 
