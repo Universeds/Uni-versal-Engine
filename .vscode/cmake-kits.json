@@ -1,0 +1,20 @@
+[
+    {
+        "name": "Visual Studio Community 2022 Release - amd64",
+        "visualStudio": "VisualStudio.17.0",
+        "visualStudioArchitecture": "x64",
+        "preferredGenerator": {
+            "name": "Visual Studio 17 2022",
+            "platform": "x64"
+        }
+    },
+    {
+        "name": "Visual Studio Community 2022 Debug - amd64",
+        "visualStudio": "VisualStudio.17.0",
+        "visualStudioArchitecture": "x64",
+        "preferredGenerator": {
+            "name": "Visual Studio 17 2022",
+            "platform": "x64"
+        }
+    }
+]
