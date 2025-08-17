@@ -3,6 +3,7 @@ build/
 bin/
 obj/
 out/
+glfw-3.4.bin.WIN64
 
 # Visual Studio files
 *.vcxproj.user

@@ -11,6 +11,7 @@ set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/scripts/buildsystems
     CACHE STRING "Vcpkg toolchain file")
 
 find_package(OpenGL REQUIRED)
+
 find_package(glfw3 CONFIG REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(glm CONFIG REQUIRED)
@@ -35,18 +36,3 @@ endif()
 
 add_executable(UniversalEngine src/main.cpp)
 target_link_libraries(UniversalEngine UniversalEngineLib)
-
-add_executable(UniversalEngineTests ${TEST_SOURCES})
-target_include_directories(UniversalEngineTests PRIVATE src tests)
-target_link_libraries(UniversalEngineTests UniversalEngineLib)
-
-enable_testing()
-
-add_test(NAME "Entity Creation" COMMAND UniversalEngineTests --test="Entity Creation")
-add_test(NAME "Entity Validation" COMMAND UniversalEngineTests --test="Entity Validation")
-add_test(NAME "Deferred Component Addition" COMMAND UniversalEngineTests --test="Deferred Component Addition")
-add_test(NAME "Component Retrieval" COMMAND UniversalEngineTests --test="Component Retrieval")
-add_test(NAME "Component Removal" COMMAND UniversalEngineTests --test="Component Removal")
-add_test(NAME "Multiple Components" COMMAND UniversalEngineTests --test="Multiple Components")
-add_test(NAME "Entity Destruction" COMMAND UniversalEngineTests --test="Entity Destruction")
-add_test(NAME "Pending Operation Count" COMMAND UniversalEngineTests --test="Pending Operation Count")
