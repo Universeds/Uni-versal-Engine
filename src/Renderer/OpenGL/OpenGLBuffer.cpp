@@ -1,7 +1,7 @@
 #include "OpenGLBuffer.h"
 #include <GL/glew.h>
 
-namespace UniversalEngine {
+namespace UniversalEngine { // stolen directly from openGL thanks suckers
     OpenGLVertexBuffer::OpenGLVertexBuffer(uint32_t size) {
         glCreateBuffers(1, &m_RendererID);
         glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);

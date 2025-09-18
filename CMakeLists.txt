@@ -15,13 +15,24 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(glm CONFIG REQUIRED)
 
+# Add ImGui sources
+file(GLOB IMGUI_SOURCES 
+    "imgui/*.cpp"
+    "imgui/backends/imgui_impl_glfw.cpp"
+    "imgui/backends/imgui_impl_opengl3.cpp"
+)
+
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE TEST_SOURCES "tests/*.cpp")
 
 list(REMOVE_ITEM SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 
-add_library(UniversalEngineLib ${SOURCES})
-target_include_directories(UniversalEngineLib PUBLIC src)
+add_library(UniversalEngineLib ${SOURCES} ${IMGUI_SOURCES})
+target_include_directories(UniversalEngineLib PUBLIC 
+    src 
+    imgui 
+    imgui/backends
+)
 target_link_libraries(UniversalEngineLib 
     OpenGL::GL 
     glfw
