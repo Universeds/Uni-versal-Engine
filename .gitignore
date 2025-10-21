@@ -15,9 +15,6 @@ out/
 .vs/
 
 # Visual Studio Code
-.vscode/settings.json
-.vscode/tasks.json
-.vscode/launch.json
 .vscode/extensions.json
 .vscode/c_cpp_properties.json
 
@@ -65,15 +62,6 @@ Makefile
 *.idb
 *.pdb
 
-# vcpkg (package manager)
-vcpkg/buildtrees/
-vcpkg/downloads/
-vcpkg/installed/
-vcpkg/packages/
-
-# Keep vcpkg configuration files
-!vcpkg/vcpkg.json
-!vcpkg/vcpkg-configuration.json
 
 # OS generated files
 .DS_Store
