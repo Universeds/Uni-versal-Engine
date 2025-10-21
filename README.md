@@ -50,7 +50,3 @@ cmake --build .
 - OpenGL
 - GLFW (window management)
 - GLEW (OpenGL extension loading)
-
-## License
-
-[Add your license here]
