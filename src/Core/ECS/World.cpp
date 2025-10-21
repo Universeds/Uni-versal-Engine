@@ -21,10 +21,6 @@ namespace UniversalEngine {
         
         ++m_LivingEntityCount;
         
-        if (id >= m_Signatures.size()) {
-            m_Signatures.resize(id + 1);
-        }
-        
         return Entity(id);
     }
     

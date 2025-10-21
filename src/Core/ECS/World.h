@@ -226,7 +226,7 @@ namespace UniversalEngine {
         
     private:
         std::queue<EntityID> m_AvailableEntities;
-        std::vector<Signature> m_Signatures;
+        std::unordered_map<EntityID, Signature> m_Signatures;
         EntityID m_NextEntityID;
         size_t m_LivingEntityCount;
         

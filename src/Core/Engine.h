@@ -2,10 +2,10 @@
 #include <memory>
 #include <chrono>
 #include "../Renderer/OpenGL/OpenGLContext.h"
-#include "../Renderer/VertexArray.h"
-#include "../Renderer/Shader.h"
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "ECS/World.h"
+#include "Systems/RenderSystem2D.h"
+#include "Systems/Physics2DSystem.h"
+#include "Systems/MouseInteractionSystem.h"
 
 namespace UniversalEngine {
     class Engine {
@@ -25,8 +25,7 @@ namespace UniversalEngine {
         
         static void FramebufferSizeCallback(GLFWwindow* window, int width, int height);
         
-        // need to make a seperate component and system for this later
-        void SetupCube();
+        void SetupScene();
         
     private:
         static Engine* s_Instance;
@@ -38,13 +37,14 @@ namespace UniversalEngine {
         uint32_t m_WindowWidth = 1280;
         uint32_t m_WindowHeight = 720;
         
-        std::shared_ptr<VertexArray> m_CubeVertexArray;
-        std::shared_ptr<Shader> m_CubeShader;
-        glm::mat4 m_ViewMatrix;
-        glm::mat4 m_ProjectionMatrix;
         float m_Time = 0.0f;
         std::chrono::steady_clock::time_point lastDelta = std::chrono::steady_clock::now();
         float deltaTime = 0.0f;
+        
+        std::unique_ptr<World> m_World;
+        std::shared_ptr<RenderSystem2D> m_RenderSystem;
+        std::shared_ptr<Physics2DSystem> m_PhysicsSystem;
+        std::shared_ptr<MouseInteractionSystem> m_MouseInteractionSystem;
     };
     
     Engine* CreateApplication();

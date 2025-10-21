@@ -1,5 +1,6 @@
 #include "Engine.h"
 #include "../Renderer/Renderer.h"
+#include "Scenes/SimpleScene2D.h"
 #include <iostream>
 #include <chrono>
 #include <GLFW/glfw3.h>
@@ -43,12 +44,15 @@ namespace UniversalEngine {
         
         Renderer::Init();
         
-        // Setup cube rendering
-        SetupCube();
+        m_World = std::make_unique<World>();
+        SetupScene();
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
+        
+        io.FontGlobalScale = 1.5f;
+        
         ImGui::StyleColorsLight();
         ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
         ImGui_ImplOpenGL3_Init("#version 450");
@@ -57,6 +61,12 @@ namespace UniversalEngine {
     }
     
     void Engine::Shutdown() {
+        if (m_RenderSystem) {
+            m_RenderSystem->Shutdown();
+        }
+        
+        m_World.reset();
+        
         Renderer::Shutdown();
         
         if (m_Window) {
@@ -85,93 +95,35 @@ namespace UniversalEngine {
         }
     }
     
-    void Engine::SetupCube() {
-        // Vertex and indices setup by chatgpt
-        float vertices[] = {
-            // Front face
-            -0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f, // Bottom-left (red)
-             0.5f, -0.5f,  0.5f,  0.0f, 1.0f, 0.0f, // Bottom-right (green)
-             0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 1.0f, // Top-right (blue)
-            -0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f, // Top-left (yellow)
-            
-            // Back face
-            -0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 1.0f, // Bottom-left (magenta)
-             0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 1.0f, // Bottom-right (cyan)
-             0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 1.0f, // Top-right (white)
-            -0.5f,  0.5f, -0.5f,  0.5f, 0.5f, 0.5f  // Top-left (gray)
-        };
+    void Engine::SetupScene() {
+        SimpleScene2D::CreateScene(*m_World);
         
-        // Cube indices
-        uint32_t indices[] = {
-            // Front face
-            0, 1, 2, 2, 3, 0,
-            // Back face
-            4, 5, 6, 6, 7, 4,
-            // Left face
-            7, 3, 0, 0, 4, 7,
-            // Right face
-            1, 5, 6, 6, 2, 1,
-            // Top face
-            3, 2, 6, 6, 7, 3,
-            // Bottom face
-            0, 1, 5, 5, 4, 0
-        };
+        m_RenderSystem = m_World->RegisterSystem<RenderSystem2D>();
         
-        m_CubeVertexArray = VertexArray::Create();
+        Signature renderSignature;
+        renderSignature.insert(ComponentTypeRegistry::GetTypeID<Transform2D>());
+        renderSignature.insert(ComponentTypeRegistry::GetTypeID<MeshRenderer2D>());
+        m_World->SetSystemSignature<RenderSystem2D>(renderSignature);
         
-        auto vertexBuffer = VertexBuffer::Create(vertices, sizeof(vertices));
-        vertexBuffer->SetLayout({
-            { ShaderDataType::Float3, "a_Position" },
-            { ShaderDataType::Float3, "a_Color" }
-        });
-        m_CubeVertexArray->AddVertexBuffer(vertexBuffer);
+        m_PhysicsSystem = m_World->RegisterSystem<Physics2DSystem>();
+        m_PhysicsSystem->SetWorld(m_World.get());
         
-        auto indexBuffer = IndexBuffer::Create(indices, sizeof(indices) / sizeof(uint32_t));
-        m_CubeVertexArray->SetIndexBuffer(indexBuffer);
+        Signature physicsSignature;
+        physicsSignature.insert(ComponentTypeRegistry::GetTypeID<Transform2D>());
+        physicsSignature.insert(ComponentTypeRegistry::GetTypeID<BoxCollider2D>());
+        m_World->SetSystemSignature<Physics2DSystem>(physicsSignature);
         
-        std::string vertexShaderSource = R"(
-            #version 450 core
-            
-            layout(location = 0) in vec3 a_Position;
-            layout(location = 1) in vec3 a_Color;
-            
-            uniform mat4 u_ViewProjection;
-            uniform mat4 u_Transform;
-            
-            out vec3 v_Color;
-            
-            void main() {
-                v_Color = a_Color;
-                gl_Position = u_ViewProjection * u_Transform * vec4(a_Position, 1.0);
-            }
-        )";
+        m_MouseInteractionSystem = m_World->RegisterSystem<MouseInteractionSystem>();
+        m_MouseInteractionSystem->SetWorld(m_World.get());
+        m_MouseInteractionSystem->SetWindow(m_Window);
         
-        std::string fragmentShaderSource = R"(
-            #version 450 core
-            
-            layout(location = 0) out vec4 color;
-            
-            in vec3 v_Color;
-            
-            void main() {
-                color = vec4(v_Color, 1.0);
-            }
-        )";
+        Signature mouseSignature;
+        mouseSignature.insert(ComponentTypeRegistry::GetTypeID<Transform2D>());
+        mouseSignature.insert(ComponentTypeRegistry::GetTypeID<BoxCollider2D>());
+        mouseSignature.insert(ComponentTypeRegistry::GetTypeID<Rigidbody2D>());
+        m_World->SetSystemSignature<MouseInteractionSystem>(mouseSignature);
         
-        m_CubeShader = Shader::Create("CubeShader", vertexShaderSource, fragmentShaderSource);
-        
-        m_ViewMatrix = glm::lookAt(
-            glm::vec3(2.0f, 2.0f, 2.0f),
-            glm::vec3(0.0f, 0.0f, 0.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f)
-        );
-        
-        m_ProjectionMatrix = glm::perspective(
-            glm::radians(45.0f), 
-            (float)m_WindowWidth / (float)m_WindowHeight, 
-            0.1f, 
-            100.0f
-        );
+        m_World->ecs_flush();
     }
     
     void Engine::Update() {
@@ -182,46 +134,96 @@ namespace UniversalEngine {
         m_Time += deltaTime;
         lastDelta = now;
 
-        //ImGUI 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-
         {
-            ImGui::Begin("Hello, world!");
+            ImGui::Begin("Uni-versal Engine");
 
-            ImGui::Checkbox("Application is WORKING MAN", &m_Running);
+            ImGui::Checkbox("Application Running", &m_Running);
 
-            ImGui::SliderFloat("float", &m_Time, 0.0f, 1.0f);
-            ImGui::DragFloat3("Projection Matrix", (float*)&m_ProjectionMatrix);
+            ImGui::Text("Time: %.2f", m_Time);
+            ImGui::Text("Entity Count: %zu", m_World->GetEntityCount());
 
             if (ImGui::Button("Button"))
                 std::cout << "Button Pressed" << std::endl;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", (int)m_Time);
 
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+            ImGui::End();
+            
+            ImGui::Begin("Entity Inspector");
+            
+            for (EntityID entityID = 1; entityID < m_World->GetEntityCount() + 1; ++entityID) {
+                Entity entity(entityID);
+                
+                if (!m_World->IsEntityValid(entity)) {
+                    continue;
+                }
+                
+                if (ImGui::TreeNode((void*)(intptr_t)entityID, "Entity %u", entityID)) {
+                    if (m_World->HasComponent<Transform2D>(entity)) {
+                        auto& transform = m_World->GetComponent<Transform2D>(entity);
+                        if (ImGui::TreeNode("Transform2D")) {
+                            ImGui::Text("Position: (%.2f, %.2f)", transform.position.x, transform.position.y);
+                            ImGui::Text("Rotation: %.2f", transform.rotation);
+                            ImGui::Text("Scale: (%.2f, %.2f)", transform.scale.x, transform.scale.y);
+                            ImGui::TreePop();
+                        }
+                    }
+                    
+                    if (m_World->HasComponent<Rigidbody2D>(entity)) {
+                        auto& rb = m_World->GetComponent<Rigidbody2D>(entity);
+                        if (ImGui::TreeNode("Rigidbody2D")) {
+                            ImGui::Text("Velocity: (%.2f, %.2f)", rb.velocity.x, rb.velocity.y);
+                            ImGui::Text("Angular Velocity: %.2f", rb.angularVelocity);
+                            ImGui::Text("Mass: %.2f", rb.mass);
+                            ImGui::Text("Restitution: %.2f", rb.restitution);
+                            ImGui::Text("Friction: %.2f", rb.friction);
+                            ImGui::Checkbox("Use Gravity", &rb.useGravity);
+                            ImGui::TreePop();
+                        }
+                    }
+                    
+                    if (m_World->HasComponent<MeshRenderer2D>(entity)) {
+                        auto& mesh = m_World->GetComponent<MeshRenderer2D>(entity);
+                        if (ImGui::TreeNode("MeshRenderer2D")) {
+                            ImGui::Text("Size: (%.2f, %.2f)", mesh.size.x, mesh.size.y);
+                            ImGui::ColorEdit4("Color", &mesh.color.x);
+                            ImGui::Checkbox("Visible", &mesh.visible);
+                            ImGui::TreePop();
+                        }
+                    }
+                    
+                    if (m_World->HasComponent<BoxCollider2D>(entity)) {
+                        auto& collider = m_World->GetComponent<BoxCollider2D>(entity);
+                        if (ImGui::TreeNode("BoxCollider2D")) {
+                            ImGui::Text("Size: (%.2f, %.2f)", collider.size.x, collider.size.y);
+                            ImGui::Text("Offset: (%.2f, %.2f)", collider.offset.x, collider.offset.y);
+                            ImGui::Checkbox("Is Trigger", &collider.isTrigger);
+                            ImGui::Checkbox("Is Static", &collider.isStatic);
+                            ImGui::TreePop();
+                        }
+                    }
+                    
+                    ImGui::TreePop();
+                }
+            }
+            
             ImGui::End();
         }
         
+        m_World->Update(deltaTime);
     }
     
     void Engine::Render() {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // Create rotating transform matrix
-        glm::mat4 transform = glm::rotate(glm::mat4(1.0f), m_Time, glm::vec3(0.5f, 1.0f, 0.0f));
-        glm::mat4 viewProjection = m_ProjectionMatrix * m_ViewMatrix;
+        if (m_RenderSystem) {
+            m_RenderSystem->Render(*m_World);
+        }
         
-        m_CubeShader->Bind();
-        m_CubeShader->SetMat4("u_ViewProjection", viewProjection);
-        m_CubeShader->SetMat4("u_Transform", transform);
-        
-        // Render the cube
-        Renderer::Submit(m_CubeVertexArray);
-        
-        // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
