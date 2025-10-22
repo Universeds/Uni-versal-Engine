@@ -45,6 +45,8 @@ namespace UniversalEngine {
         std::shared_ptr<RenderSystem2D> m_RenderSystem;
         std::shared_ptr<Physics2DSystem> m_PhysicsSystem;
         std::shared_ptr<MouseInteractionSystem> m_MouseInteractionSystem;
+        
+        Entity m_SceneEntity;
     };
     
     Engine* CreateApplication();

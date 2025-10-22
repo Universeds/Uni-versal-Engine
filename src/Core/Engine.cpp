@@ -1,6 +1,7 @@
 #include "Engine.h"
 #include "../Renderer/Renderer.h"
 #include "Scenes/SimpleScene2D.h"
+#include "Components/Scene.h"
 #include <iostream>
 #include <chrono>
 #include <GLFW/glfw3.h>
@@ -96,6 +97,12 @@ namespace UniversalEngine {
     }
     
     void Engine::SetupScene() {
+        m_World->RegisterComponent<Scene>();
+        
+        m_SceneEntity = m_World->CreateEntity();
+        Scene sceneComponent(1.0f);
+        m_World->AddComponent(m_SceneEntity, std::move(sceneComponent));
+        
         SimpleScene2D::CreateScene(*m_World);
         
         m_RenderSystem = m_World->RegisterSystem<RenderSystem2D>();
@@ -146,6 +153,17 @@ namespace UniversalEngine {
 
             ImGui::Text("Time: %.2f", m_Time);
             ImGui::Text("Entity Count: %zu", m_World->GetEntityCount());
+            
+            if (m_World->HasComponent<Scene>(m_SceneEntity)) {
+                auto& scene = m_World->GetComponent<Scene>(m_SceneEntity);
+                ImGui::Separator();
+                ImGui::Text("Scene Settings");
+                ImGui::SliderFloat("Time Scale", &scene.timeScale, 0.0f, 3.0f);
+                if (ImGui::Button("Reset Time Scale")) {
+                    scene.timeScale = 1.0f;
+                }
+                ImGui::Separator();
+            }
 
             if (ImGui::Button("Button"))
                 std::cout << "Button Pressed" << std::endl;
@@ -219,7 +237,13 @@ namespace UniversalEngine {
             ImGui::End();
         }
         
-        m_World->Update(deltaTime);
+        float scaledDeltaTime = deltaTime;
+        if (m_World->HasComponent<Scene>(m_SceneEntity)) {
+            auto& scene = m_World->GetComponent<Scene>(m_SceneEntity);
+            scaledDeltaTime = scene.GetScaledDeltaTime(deltaTime);
+        }
+        
+        m_World->Update(scaledDeltaTime);
     }
     
     void Engine::Render() {
