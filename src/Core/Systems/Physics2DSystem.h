@@ -5,6 +5,7 @@
 #include "../Components/Rigidbody2D.h"
 #include "../Components/BoxCollider2D.h"
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 namespace UniversalEngine {
     
@@ -16,6 +17,7 @@ namespace UniversalEngine {
         void Init() override {
             m_Gravity = glm::vec2(0.0f, -9.81f);
         }
+        
         
         void Update(float deltaTime) override {
             for (auto entity : m_Entities) {
@@ -81,7 +83,7 @@ namespace UniversalEngine {
                 auto& otherTransform = m_World->GetComponent<Transform2D>(otherEntity);
                 auto& otherCollider = m_World->GetComponent<BoxCollider2D>(otherEntity);
                 
-                if (collider.Intersects(otherCollider, transform.position, otherTransform.position)) {
+                if (IntersectsOBB(transform.position, transform.rotation, collider, otherTransform.position, otherTransform.rotation, otherCollider)) {
                     bool otherHasRigidbody = m_World->HasComponent<Rigidbody2D>(otherEntity);
                     
                     if (otherCollider.isStatic || !otherHasRigidbody) {
@@ -95,151 +97,87 @@ namespace UniversalEngine {
         }
 
         void ResolveStaticCollision(Transform2D& transform, Rigidbody2D& rigidbody, BoxCollider2D& collider,
-                                   Transform2D& otherTransform, BoxCollider2D& otherCollider) {
-            glm::vec2 thisMin = transform.position + collider.offset - collider.size * 0.5f;
-            glm::vec2 thisMax = transform.position + collider.offset + collider.size * 0.5f;
-            
-            glm::vec2 otherMin = otherTransform.position + otherCollider.offset - otherCollider.size * 0.5f;
-            glm::vec2 otherMax = otherTransform.position + otherCollider.offset + otherCollider.size * 0.5f;
-            
-            glm::vec2 overlap;
-            overlap.x = std::min(thisMax.x - otherMin.x, otherMax.x - thisMin.x);
-            overlap.y = std::min(thisMax.y - otherMin.y, otherMax.y - thisMin.y);
-            
-            glm::vec2 contactPoint;
-            glm::vec2 contactNormal;
-            
-            if (overlap.x < overlap.y) {
-                if (transform.position.x < otherTransform.position.x) {
-                    transform.position.x -= overlap.x;
-                    contactNormal = glm::vec2(-1.0f, 0.0f);
-                    contactPoint = glm::vec2(thisMax.x - overlap.x * 0.5f, (thisMin.y + thisMax.y) * 0.5f);
-                } else {
-                    transform.position.x += overlap.x;
-                    contactNormal = glm::vec2(1.0f, 0.0f);
-                    contactPoint = glm::vec2(thisMin.x + overlap.x * 0.5f, (thisMin.y + thisMax.y) * 0.5f);
-                }
-                
-                float relativeVelocity = rigidbody.velocity.x;
-                rigidbody.velocity.x = -relativeVelocity * rigidbody.restitution;
-                rigidbody.velocity.y *= (1.0f - rigidbody.friction);
-                
-                glm::vec2 r = contactPoint - transform.position;
-                float crossProduct = r.x * contactNormal.y - r.y * contactNormal.x;
-                float angularImpulse = crossProduct * relativeVelocity * 5.0f;
-                float inertia = rigidbody.GetInertia(collider.size);
-                if (inertia > 0.0f) {
-                    rigidbody.angularVelocity += angularImpulse / inertia;
-                }
-            } else {
-                if (transform.position.y < otherTransform.position.y) {
-                    transform.position.y -= overlap.y;
-                    contactNormal = glm::vec2(0.0f, -1.0f);
-                    contactPoint = glm::vec2((thisMin.x + thisMax.x) * 0.5f, thisMax.y - overlap.y * 0.5f);
-                } else {
-                    transform.position.y += overlap.y;
-                    contactNormal = glm::vec2(0.0f, 1.0f);
-                    contactPoint = glm::vec2((thisMin.x + thisMax.x) * 0.5f, thisMin.y + overlap.y * 0.5f);
-                }
-                
-                float relativeVelocity = rigidbody.velocity.y;
-                rigidbody.velocity.y = -relativeVelocity * rigidbody.restitution;
-                rigidbody.velocity.x *= (1.0f - rigidbody.friction);
-                
-                glm::vec2 r = contactPoint - transform.position;
-                float crossProduct = r.x * contactNormal.y - r.y * contactNormal.x;
-                float angularImpulse = crossProduct * relativeVelocity * 5.0f;
-                float inertia = rigidbody.GetInertia(collider.size);
-                if (inertia > 0.0f) {
-                    rigidbody.angularVelocity += angularImpulse / inertia;
-                }
-            }
+                                   const Transform2D& otherTransform, const BoxCollider2D& otherCollider) {
+            detail::OBB A = detail::makeOBB(transform.position, transform.rotation, collider);
+            detail::OBB B = detail::makeOBB(otherTransform.position, otherTransform.rotation, otherCollider);
+            glm::vec2 n;
+            float pen;
+            if (!detail::satMTV(A, B, n, pen)) return;
+
+            glm::vec2 mtv = -n * pen;
+            transform.position += mtv;
+
+            auto Ac = A.corners();
+            auto Bc = B.corners();
+            glm::vec2 pA = detail::support(Ac, -n);
+            glm::vec2 pB = detail::support(Bc, n);
+            glm::vec2 contactPoint = 0.5f * (pA + pB);
+            glm::vec2 contactNormal = n;
+
+            float vn = glm::dot(rigidbody.velocity, contactNormal);
+            glm::vec2 vN = vn * contactNormal;
+            glm::vec2 vT = rigidbody.velocity - vN;
+            glm::vec2 newV = -rigidbody.restitution * vN + (1.f - rigidbody.friction) * vT;
+            rigidbody.velocity = newV;
+
+            glm::vec2 r = contactPoint - A.c;
+            float torqueImpulse = (r.x * contactNormal.y - r.y * contactNormal.x) * (-vn);
+            float inertia = rigidbody.GetInertia(collider.size);
         }
         
         void ResolveDynamicCollision(Transform2D& transform1, Rigidbody2D& rb1, BoxCollider2D& collider1,
                                     Transform2D& transform2, Rigidbody2D& rb2, BoxCollider2D& collider2) {
-            glm::vec2 thisMin = transform1.position + collider1.offset - collider1.size * 0.5f;
-            glm::vec2 thisMax = transform1.position + collider1.offset + collider1.size * 0.5f;
-            
-            glm::vec2 otherMin = transform2.position + collider2.offset - collider2.size * 0.5f;
-            glm::vec2 otherMax = transform2.position + collider2.offset + collider2.size * 0.5f;
-            
-            glm::vec2 overlap;
-            overlap.x = std::min(thisMax.x - otherMin.x, otherMax.x - thisMin.x);
-            overlap.y = std::min(thisMax.y - otherMin.y, otherMax.y - thisMin.y);
-            
+            detail::OBB A = detail::makeOBB(transform1.position, transform1.rotation, collider1);
+            detail::OBB B = detail::makeOBB(transform2.position, transform2.rotation, collider2);
+            glm::vec2 n;
+            float pen;
+            if (!detail::satMTV(A, B, n, pen)) return;
+
             float totalMass = rb1.mass + rb2.mass;
-            float mass1Ratio = rb1.mass / totalMass;
-            float mass2Ratio = rb2.mass / totalMass;
+            float mass1Ratio = rb2.mass / totalMass;
+            float mass2Ratio = rb1.mass / totalMass;
+
+            glm::vec2 mtv = -n * pen;
+            transform1.position += mtv * mass1Ratio;
+            transform2.position -= mtv * mass2Ratio;
+
+            auto Ac = A.corners();
+            auto Bc = B.corners();
+            glm::vec2 pA = detail::support(Ac, -n);
+            glm::vec2 pB = detail::support(Bc, n);
+            glm::vec2 contactPoint = 0.5f * (pA + pB);
+            glm::vec2 contactNormal = n;
+
+            glm::vec2 relativeVel = rb1.velocity - rb2.velocity;
+            float vn = glm::dot(relativeVel, contactNormal);
             
-            glm::vec2 contactPoint;
-            glm::vec2 contactNormal;
-            
-            if (overlap.x < overlap.y) {
-                float separation = overlap.x;
-                if (transform1.position.x < transform2.position.x) {
-                    transform1.position.x -= separation * mass2Ratio;
-                    transform2.position.x += separation * mass1Ratio;
-                    contactNormal = glm::vec2(-1.0f, 0.0f);
-                    contactPoint = glm::vec2(thisMax.x - separation * 0.5f, (thisMin.y + thisMax.y) * 0.5f);
-                } else {
-                    transform1.position.x += separation * mass2Ratio;
-                    transform2.position.x -= separation * mass1Ratio;
-                    contactNormal = glm::vec2(1.0f, 0.0f);
-                    contactPoint = glm::vec2(thisMin.x + separation * 0.5f, (thisMin.y + thisMax.y) * 0.5f);
-                }
-                
-                float relativeVelocity = rb1.velocity.x - rb2.velocity.x;
-                float restitution = std::min(rb1.restitution, rb2.restitution);
-                float impulse = -(1.0f + restitution) * relativeVelocity / totalMass;
-                
-                rb1.velocity.x += impulse * rb2.mass;
-                rb2.velocity.x -= impulse * rb1.mass;
-                
+            if (vn > 0.f) return;
+
+            float restitution = std::min(rb1.restitution, rb2.restitution);
+            float j = -(1.f + restitution) * vn;
+            j /= (1.f / rb1.mass + 1.f / rb2.mass);
+
+            glm::vec2 impulse = j * contactNormal;
+            rb1.velocity += impulse / rb1.mass;
+            rb2.velocity -= impulse / rb2.mass;
+
+            glm::vec2 tangent = relativeVel - vn * contactNormal;
+            if (glm::length2(tangent) > 0.0001f) {
+                tangent = glm::normalize(tangent);
                 float friction = std::max(rb1.friction, rb2.friction);
-                rb1.velocity.y *= (1.0f - friction);
-                rb2.velocity.y *= (1.0f - friction);
-                
-                glm::vec2 r1 = contactPoint - transform1.position;
-                glm::vec2 r2 = contactPoint - transform2.position;
-                float inertia1 = rb1.GetInertia(collider1.size);
-                float inertia2 = rb2.GetInertia(collider2.size);
-                float angularImpulse = (r1.x * contactNormal.y - r1.y * contactNormal.x) * impulse;
-                rb1.angularVelocity += angularImpulse / inertia1;
-                rb2.angularVelocity -= angularImpulse / inertia2;
-            } else {
-                float separation = overlap.y;
-                if (transform1.position.y < transform2.position.y) {
-                    transform1.position.y -= separation * mass2Ratio;
-                    transform2.position.y += separation * mass1Ratio;
-                    contactNormal = glm::vec2(0.0f, -1.0f);
-                    contactPoint = glm::vec2((thisMin.x + thisMax.x) * 0.5f, thisMax.y - separation * 0.5f);
-                } else {
-                    transform1.position.y += separation * mass2Ratio;
-                    transform2.position.y -= separation * mass1Ratio;
-                    contactNormal = glm::vec2(0.0f, 1.0f);
-                    contactPoint = glm::vec2((thisMin.x + thisMax.x) * 0.5f, thisMin.y + separation * 0.5f);
-                }
-                
-                float relativeVelocity = rb1.velocity.y - rb2.velocity.y;
-                float restitution = std::min(rb1.restitution, rb2.restitution);
-                float impulse = -(1.0f + restitution) * relativeVelocity / totalMass;
-                
-                rb1.velocity.y += impulse * rb2.mass;
-                rb2.velocity.y -= impulse * rb1.mass;
-                
-                float friction = std::max(rb1.friction, rb2.friction);
-                rb1.velocity.x *= (1.0f - friction);
-                rb2.velocity.x *= (1.0f - friction);
-                
-                glm::vec2 r1 = contactPoint - transform1.position;
-                glm::vec2 r2 = contactPoint - transform2.position;
-                float inertia1 = rb1.GetInertia(collider1.size);
-                float inertia2 = rb2.GetInertia(collider2.size);
-                float angularImpulse = (r1.x * contactNormal.y - r1.y * contactNormal.x) * impulse;
-                rb1.angularVelocity += angularImpulse / inertia1;
-                rb2.angularVelocity -= angularImpulse / inertia2;
+                glm::vec2 frictionImpulse = friction * glm::length(impulse) * tangent;
+                rb1.velocity -= frictionImpulse / rb1.mass;
+                rb2.velocity += frictionImpulse / rb2.mass;
             }
+
+            glm::vec2 r1 = contactPoint - A.c;
+            glm::vec2 r2 = contactPoint - B.c;
+            float inertia1 = rb1.GetInertia(collider1.size);
+            float inertia2 = rb2.GetInertia(collider2.size);
+            
+            float angularImpulse = (r1.x * contactNormal.y - r1.y * contactNormal.x) * j;
+            if (inertia1 > 0.f) rb1.angularVelocity += angularImpulse / inertia1;
+            if (inertia2 > 0.f) rb2.angularVelocity -= angularImpulse / inertia2;
         }
         
     private:

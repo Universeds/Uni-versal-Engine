@@ -153,6 +153,7 @@ namespace UniversalEngine {
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
             ImGui::End();
+
             
             ImGui::Begin("Entity Inspector");
             
@@ -167,9 +168,9 @@ namespace UniversalEngine {
                     if (m_World->HasComponent<Transform2D>(entity)) {
                         auto& transform = m_World->GetComponent<Transform2D>(entity);
                         if (ImGui::TreeNode("Transform2D")) {
-                            ImGui::Text("Position: (%.2f, %.2f)", transform.position.x, transform.position.y);
-                            ImGui::Text("Rotation: %.2f", transform.rotation);
-                            ImGui::Text("Scale: (%.2f, %.2f)", transform.scale.x, transform.scale.y);
+                            ImGui::DragFloat2("Position", &transform.position.x, 0.1f);
+                            ImGui::SliderFloat("Rotation", &transform.rotation, -180.0f, 180.0f);
+                            ImGui::DragFloat2("Scale", &transform.scale.x, 0.01f, 0.01f, 10.0f);
                             ImGui::TreePop();
                         }
                     }
@@ -177,11 +178,14 @@ namespace UniversalEngine {
                     if (m_World->HasComponent<Rigidbody2D>(entity)) {
                         auto& rb = m_World->GetComponent<Rigidbody2D>(entity);
                         if (ImGui::TreeNode("Rigidbody2D")) {
-                            ImGui::Text("Velocity: (%.2f, %.2f)", rb.velocity.x, rb.velocity.y);
-                            ImGui::Text("Angular Velocity: %.2f", rb.angularVelocity);
-                            ImGui::Text("Mass: %.2f", rb.mass);
-                            ImGui::Text("Restitution: %.2f", rb.restitution);
-                            ImGui::Text("Friction: %.2f", rb.friction);
+                            ImGui::DragFloat2("Velocity", &rb.velocity.x, 0.1f);
+                            ImGui::SliderFloat("Angular Velocity", &rb.angularVelocity, -10.0f, 10.0f);
+                            ImGui::SliderFloat("Mass", &rb.mass, 0.1f, 10.0f);
+                            ImGui::SliderFloat("Restitution", &rb.restitution, 0.0f, 1.0f);
+                            ImGui::SliderFloat("Friction", &rb.friction, 0.0f, 1.0f);
+                            ImGui::SliderFloat("Gravity Scale", &rb.gravityScale, 0.0f, 2.0f);
+                            ImGui::SliderFloat("Drag", &rb.drag, 0.0f, 0.5f);
+                            ImGui::SliderFloat("Angular Drag", &rb.angularDrag, 0.0f, 0.5f);
                             ImGui::Checkbox("Use Gravity", &rb.useGravity);
                             ImGui::TreePop();
                         }
@@ -190,7 +194,7 @@ namespace UniversalEngine {
                     if (m_World->HasComponent<MeshRenderer2D>(entity)) {
                         auto& mesh = m_World->GetComponent<MeshRenderer2D>(entity);
                         if (ImGui::TreeNode("MeshRenderer2D")) {
-                            ImGui::Text("Size: (%.2f, %.2f)", mesh.size.x, mesh.size.y);
+                            ImGui::DragFloat2("Size", &mesh.size.x, 0.1f, 0.1f, 10.0f);
                             ImGui::ColorEdit4("Color", &mesh.color.x);
                             ImGui::Checkbox("Visible", &mesh.visible);
                             ImGui::TreePop();
@@ -200,8 +204,8 @@ namespace UniversalEngine {
                     if (m_World->HasComponent<BoxCollider2D>(entity)) {
                         auto& collider = m_World->GetComponent<BoxCollider2D>(entity);
                         if (ImGui::TreeNode("BoxCollider2D")) {
-                            ImGui::Text("Size: (%.2f, %.2f)", collider.size.x, collider.size.y);
-                            ImGui::Text("Offset: (%.2f, %.2f)", collider.offset.x, collider.offset.y);
+                            ImGui::DragFloat2("Size", &collider.size.x, 0.1f, 0.1f, 10.0f);
+                            ImGui::DragFloat2("Offset", &collider.offset.x, 0.1f);
                             ImGui::Checkbox("Is Trigger", &collider.isTrigger);
                             ImGui::Checkbox("Is Static", &collider.isStatic);
                             ImGui::TreePop();
