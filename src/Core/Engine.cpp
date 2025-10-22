@@ -117,6 +117,7 @@ namespace UniversalEngine {
         m_MouseInteractionSystem = m_World->RegisterSystem<MouseInteractionSystem>();
         m_MouseInteractionSystem->SetWorld(m_World.get());
         m_MouseInteractionSystem->SetWindow(m_Window);
+        m_MouseInteractionSystem->SetViewportSize(m_WindowWidth, m_WindowHeight);
         
         Signature mouseSignature;
         mouseSignature.insert(ComponentTypeRegistry::GetTypeID<Transform2D>());
@@ -238,6 +239,11 @@ namespace UniversalEngine {
         // Update render system viewport size to maintain correct aspect ratio
         if (engine->m_RenderSystem) {
             engine->m_RenderSystem->SetViewportSize(width, height);
+        }
+        
+        // Update mouse interaction system viewport size for correct coordinate transformation
+        if (engine->m_MouseInteractionSystem) {
+            engine->m_MouseInteractionSystem->SetViewportSize(width, height);
         }
     }
 }

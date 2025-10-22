@@ -9,6 +9,8 @@ namespace UniversalEngine {
     void OpenGLContext::Init() {
         glfwMakeContextCurrent(m_WindowHandle);
         
+        glfwSwapInterval(0);
+        
         if (glewInit() != GLEW_OK) {
             std::cerr << "Failed to initialize GLEW!" << std::endl;
             return;

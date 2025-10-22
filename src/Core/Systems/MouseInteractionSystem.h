@@ -17,6 +17,11 @@ namespace UniversalEngine {
         void Init() override {
         }
         
+        void SetViewportSize(uint32_t width, uint32_t height) {
+            m_ViewportWidth = width;
+            m_ViewportHeight = height;
+        }
+        
         void Update(float deltaTime) override {
             if (!m_World || !m_Window) return;
             
@@ -35,6 +40,8 @@ namespace UniversalEngine {
                 if (m_GrabbedEntity.GetID() != 0) {
                     m_IsDragging = true;
                     auto& transform = m_World->GetComponent<Transform2D>(m_GrabbedEntity);
+                    auto& rigidbody = m_World->GetComponent<Rigidbody2D>(m_GrabbedEntity);
+                    wasUsingGravity = rigidbody.useGravity;
                     m_DragOffset = transform.position - worldPos;
                 }
             } else if (leftMouseButton == GLFW_RELEASE && m_IsDragging) {
@@ -42,7 +49,7 @@ namespace UniversalEngine {
                 if (m_World->HasComponent<Transform2D>(m_GrabbedEntity) &&
                     m_World->HasComponent<Rigidbody2D>(m_GrabbedEntity)) {   
                     auto& rigidbody = m_World->GetComponent<Rigidbody2D>(m_GrabbedEntity);
-                    rigidbody.useGravity = true;
+                    rigidbody.useGravity = wasUsingGravity;
                 }
                 m_GrabbedEntity = Entity(0);
             }
@@ -62,7 +69,6 @@ namespace UniversalEngine {
                     
                     rigidbody.velocity = direction * stiffness - rigidbody.velocity * damping;
                     
-                    bool wasUsingGravity = rigidbody.useGravity;
                     rigidbody.useGravity = false;
                 }
             }
@@ -81,12 +87,14 @@ namespace UniversalEngine {
             float normalizedX = (screenPos.x / windowWidth) * 2.0f - 1.0f;
             float normalizedY = 1.0f - (screenPos.y / windowHeight) * 2.0f;
             
-            float worldWidth = 20.0f;
-            float worldHeight = 15.0f;
+            // Calculate aspect ratio and world dimensions to match the render system
+            float aspectRatio = static_cast<float>(m_ViewportWidth) / static_cast<float>(m_ViewportHeight);
+            float orthoHeight = 10.0f;
+            float orthoWidth = orthoHeight * aspectRatio;
             
             glm::vec2 worldPos;
-            worldPos.x = normalizedX * (worldWidth / 2.0f);
-            worldPos.y = normalizedY * (worldHeight / 2.0f);
+            worldPos.x = normalizedX * orthoWidth;
+            worldPos.y = normalizedY * orthoHeight;
             
             return worldPos;
         }
@@ -119,8 +127,11 @@ namespace UniversalEngine {
         World* m_World = nullptr;
         GLFWwindow* m_Window = nullptr;
         bool m_IsDragging = false;
+        bool wasUsingGravity = false;
         Entity m_GrabbedEntity{0};
         glm::vec2 m_DragOffset{0.0f, 0.0f};
+        uint32_t m_ViewportWidth = 1280;
+        uint32_t m_ViewportHeight = 720;
     };
     
 }
