@@ -23,6 +23,11 @@ namespace UniversalEngine {
             SetupQuadVAO();
         }
         
+        void SetViewportSize(uint32_t width, uint32_t height) {
+            m_ViewportWidth = width;
+            m_ViewportHeight = height;
+        }
+        
         void Update(float deltaTime) override {
         }
         
@@ -33,7 +38,12 @@ namespace UniversalEngine {
             
             m_Shader->Bind();
             
-            glm::mat4 projection = glm::ortho(-10.0f, 10.0f, -7.5f, 7.5f, -1.0f, 1.0f);
+            // Calculate aspect ratio and create projection matrix that maintains correct proportions
+            float aspectRatio = static_cast<float>(m_ViewportWidth) / static_cast<float>(m_ViewportHeight);
+            float orthoHeight = 10.0f;
+            float orthoWidth = orthoHeight * aspectRatio;
+            
+            glm::mat4 projection = glm::ortho(-orthoWidth, orthoWidth, -orthoHeight, orthoHeight, -1.0f, 1.0f);
             m_Shader->SetMat4("u_Projection", projection);
             
             for (auto entity : m_Entities) {
@@ -125,6 +135,8 @@ namespace UniversalEngine {
     private:
         std::shared_ptr<Shader> m_Shader;
         std::shared_ptr<VertexArray> m_QuadVAO;
+        uint32_t m_ViewportWidth = 1280;
+        uint32_t m_ViewportHeight = 720;
     };
     
 }

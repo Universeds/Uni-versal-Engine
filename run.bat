@@ -18,70 +18,30 @@ if not exist "build" (
     mkdir build
 )
 
-:: Navigate to build directory
-cd build
-
 echo.
 echo Configuring project with CMake...
-echo Trying to auto-detect best generator...
+echo Using Visual Studio 2022 generator...
 
-:: Try different generators in order of preference
-cmake .. -G "Visual Studio 17 2022" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo Using Visual Studio 17 2022 generator
-    set "GENERATOR_FOUND=1"
-    set "BUILD_CONFIG=Release"
-    set "EXE_PATH=Release\UniversalEngine.exe"
-) else (
-    cmake .. -G "Visual Studio 16 2019" >nul 2>&1
-    if %errorlevel% equ 0 (
-        echo Using Visual Studio 16 2019 generator
-        set "GENERATOR_FOUND=1"
-        set "BUILD_CONFIG=Release"
-        set "EXE_PATH=Release\UniversalEngine.exe"
-    ) else (
-        cmake .. -G "MinGW Makefiles" >nul 2>&1
-        if %errorlevel% equ 0 (
-            echo Using MinGW Makefiles generator
-            set "GENERATOR_FOUND=1"
-            set "BUILD_CONFIG="
-            set "EXE_PATH=UniversalEngine.exe"
-        ) else (
-            cmake .. >nul 2>&1
-            if %errorlevel% equ 0 (
-                echo Using default generator
-                set "GENERATOR_FOUND=1"
-                set "BUILD_CONFIG="
-                set "EXE_PATH=UniversalEngine.exe"
-            ) else (
-                echo ERROR: No suitable generator found
-                echo Please install Visual Studio, MinGW, or another compatible build system
-                cd ..
-                pause
-                exit /b 1
-            )
-        )
-    )
+:: Clean build directory for fresh configuration
+if exist "build\CMakeCache.txt" (
+    echo Cleaning previous CMake cache...
+    del /Q build\CMakeCache.txt
 )
 
-if not defined GENERATOR_FOUND (
+:: Configure with Visual Studio 2022 and vcpkg toolchain
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="%CD%\vcpkg\scripts\buildsystems\vcpkg.cmake"
+if %errorlevel% neq 0 (
     echo ERROR: CMake configuration failed
-    cd ..
+    echo Please ensure Visual Studio 2022 with C++ tools is installed
     pause
     exit /b 1
 )
 
 echo.
 echo Building project...
-if defined BUILD_CONFIG (
-    cmake --build . --config %BUILD_CONFIG%
-) else (
-    cmake --build .
-)
-
+cmake --build build --config Release
 if %errorlevel% neq 0 (
     echo ERROR: Build failed
-    cd ..
     pause
     exit /b 1
 )
@@ -90,23 +50,15 @@ echo.
 echo Build successful! Starting Universal Engine...
 echo ========================================
 
-:: Check if executable exists
-if exist "%EXE_PATH%" (
-    "%EXE_PATH%"
+:: Check if executable exists and run it
+if exist "build\Release\UniversalEngine.exe" (
+    build\Release\UniversalEngine.exe
 ) else (
     echo ERROR: UniversalEngine.exe not found
-    echo Expected location: %EXE_PATH%
-    echo Searching for executable...
-    echo Checking Release directory:
-    dir Release\*.exe 2>nul
-    echo Checking Debug directory:
-    dir Debug\*.exe 2>nul
-    echo Checking root build directory:
-    dir *.exe 2>nul
+    echo Expected location: build\Release\UniversalEngine.exe
+    pause
+    exit /b 1
 )
-
-:: Return to root directory
-cd ..
 
 echo.
 echo ========================================

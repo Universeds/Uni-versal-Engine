@@ -99,6 +99,7 @@ namespace UniversalEngine {
         SimpleScene2D::CreateScene(*m_World);
         
         m_RenderSystem = m_World->RegisterSystem<RenderSystem2D>();
+        m_RenderSystem->SetViewportSize(m_WindowWidth, m_WindowHeight);
         
         Signature renderSignature;
         renderSignature.insert(ComponentTypeRegistry::GetTypeID<Transform2D>());
@@ -233,5 +234,10 @@ namespace UniversalEngine {
         engine->m_WindowWidth = width;
         engine->m_WindowHeight = height;
         Renderer::OnWindowResize(width, height);
+        
+        // Update render system viewport size to maintain correct aspect ratio
+        if (engine->m_RenderSystem) {
+            engine->m_RenderSystem->SetViewportSize(width, height);
+        }
     }
 }
