@@ -17,17 +17,18 @@ namespace UniversalEngine {
             world.RegisterComponent<BoxCollider2D>();
             world.RegisterComponent<Rigidbody2D>();
             
-            CreateBox(world);
+            CreateBox(world, glm::vec2(0.0f,3.0f));
+            CreateBox(world, glm::vec2(2.0f,3.0f));
             CreatePlatform(world);
         }
         
-        static Entity CreateBox(World& world) {
+        static Entity CreateBox(World& world, glm::vec2 position) {
             Entity box = world.CreateEntity();
             
             Transform2D transform;
-            transform.position = glm::vec2(0.0f, 3.0f);
+            transform.position = position;
             transform.scale = glm::vec2(1.0f, 1.0f);
-            transform.rotation = 45.0f;
+            transform.rotation = 0.0f;
             world.AddComponent(box, std::move(transform));
             
             MeshRenderer2D meshRenderer(glm::vec2(1.0f, 1.0f), glm::vec4(1.0f, 0.5f, 0.2f, 1.0f));
